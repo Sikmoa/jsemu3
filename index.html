@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>3DS / PSP Emulator</title>
+    <!-- Must run before anything else: on hosts that can't set response
+         headers themselves (GitHub Pages, etc.) this gets the page
+         cross-origin isolated via a service worker instead. No-op when
+         served locally via server.js, which already sets the headers. -->
+    <script src="coi.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#111111">
+    <link rel="icon" href="data:,">
+    <link rel="manifest" href="manifest.json">
+    <!-- iOS ignores <link rel="manifest">'s display mode, so these three
+         meta tags are what actually get "Add to Home Screen" to launch
+         full-screen (no Safari chrome eating the top/bottom of a landscape
+         game) instead of opening a normal Safari tab. Harmless elsewhere. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="3DS/PSP">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: #111;
+            color: #ccc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+        }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Keeps content clear of the iPhone notch / home indicator when
+               launched full-screen from the home screen (viewport-fit=cover
+               above opts into drawing under them in the first place). A
+               no-op everywhere else, since env() falls back to 0. */
+            padding: env(safe-area-inset-top) env(safe-area-inset-right)
+                     env(safe-area-inset-bottom) env(safe-area-inset-left);
+            box-sizing: border-box;
+        }
+        button {
+            /* Removes the gray flash Mobile Safari/Chrome show on tap, and
+               the ~300ms delay old mobile browsers add before a click
+               fires while they wait to see if it's a double-tap-to-zoom. */
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        #appRoot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1em;
+        }
+        #dropzone {
+            width: 26em;
+            max-width: 85vw;
+            min-height: 10em;
+            border: 2px dashed #444;
+            border-radius: 0.5em;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2em 1em;
+            cursor: pointer;
+            gap: 0.75em;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        #dropzone[drag] {
+            border-color: #4a9eff;
+            color: #fff;
+        }
+        #dropzone button {
+            padding: 0.6em 1.2em;
+            font-size: 1em;
+            border-radius: 0.4em;
+            border: 1px solid #555;
+            background: #2a2a2a;
+            color: #ddd;
+            cursor: pointer;
+        }
+        #dropzone button:hover {
+            background: #3a3a3a;
+        }
+        #status {
+            margin-top: 0.5em;
+            font-size: 0.85em;
+            color: #999;
+            min-height: 1.2em;
+        }
+        #sdcard-panel {
+            width: 26em;
+            max-width: 85vw;
+            border: 1px solid #333;
+            border-radius: 0.5em;
+            padding: 1em;
+            text-align: center;
+        }
+        #sdcard-panel button {
+            padding: 0.5em 1.2em;
+            font-size: 0.95em;
+            border-radius: 0.4em;
+            border: 1px solid #555;
+            background: #2a2a2a;
+            color: #ddd;
+            cursor: pointer;
+        }
+        #sdcard-panel button:hover {
+            background: #3a3a3a;
+        }
+        #sdcardHelp {
+            margin-top: 0.6em;
+            font-size: 0.8em;
+            color: #888;
+        }
+        #sdcardStatus {
+            margin-top: 0.5em;
+            font-size: 0.8em;
+            color: #7fd67f;
+            min-height: 1.1em;
+        }
+        #display, #game {
+            width: 100%;
+            height: 100%;
+        }
+        .msg {
+            margin-bottom: 0.25em;
+        }
+    </style>
+</head>
+<body>
+    <div id="appRoot">
+        <div id="dropzone">
+            <div>Drop a 3DS or PSP game file here, or click to choose</div>
+            <input type="file" id="fileInput" style="display:none">
+            <div id="status"></div>
+        </div>
+        <div id="sdcard-panel">
+            <button id="sdcardBtn" type="button">Create Virtual SD Card</button>
+            <div id="sdcardHelp">
+                For 3DS games that need extra storage to run properly (Persona Q and other
+                DLC/extra-save-data-heavy titles), use this to launch with a freshly
+                created virtual SD card instead of the drop zone above. Once a 3DS game
+                is running, an "SD Card" button in the top-right corner opens a menu
+                showing what's actually on it (files, folders, size used), with a
+                "Create SD Card" action if it's empty or a "Reset SD Card" action if it
+                already holds data, without needing to leave the page.
+            </div>
+            <div id="sdcardStatus"></div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
