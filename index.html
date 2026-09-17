@@ -1,158 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>3DS / PSP Emulator</title>
-    <!-- Must run before anything else: on hosts that can't set response
-         headers themselves (GitHub Pages, etc.) this gets the page
-         cross-origin isolated via a service worker instead. No-op when
-         served locally via server.js, which already sets the headers. -->
-    <script src="coi.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#111111">
-    <link rel="icon" href="data:,">
-    <link rel="manifest" href="manifest.json">
-    <!-- iOS ignores <link rel="manifest">'s display mode, so these three
-         meta tags are what actually get "Add to Home Screen" to launch
-         full-screen (no Safari chrome eating the top/bottom of a landscape
-         game) instead of opening a normal Safari tab. Harmless elsewhere. -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="3DS/PSP">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
-    <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            background: #111;
-            color: #ccc;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-        }
-        body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            /* Keeps content clear of the iPhone notch / home indicator when
-               launched full-screen from the home screen (viewport-fit=cover
-               above opts into drawing under them in the first place). A
-               no-op everywhere else, since env() falls back to 0. */
-            padding: env(safe-area-inset-top) env(safe-area-inset-right)
-                     env(safe-area-inset-bottom) env(safe-area-inset-left);
-            box-sizing: border-box;
-        }
-        button {
-            /* Removes the gray flash Mobile Safari/Chrome show on tap, and
-               the ~300ms delay old mobile browsers add before a click
-               fires while they wait to see if it's a double-tap-to-zoom. */
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
-        }
-        #appRoot {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1em;
-        }
-        #dropzone {
-            width: 26em;
-            max-width: 85vw;
-            min-height: 10em;
-            border: 2px dashed #444;
-            border-radius: 0.5em;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 2em 1em;
-            cursor: pointer;
-            gap: 0.75em;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
-        }
-        #dropzone[drag] {
-            border-color: #4a9eff;
-            color: #fff;
-        }
-        #dropzone button {
-            padding: 0.6em 1.2em;
-            font-size: 1em;
-            border-radius: 0.4em;
-            border: 1px solid #555;
-            background: #2a2a2a;
-            color: #ddd;
-            cursor: pointer;
-        }
-        #dropzone button:hover {
-            background: #3a3a3a;
-        }
-        #status {
-            margin-top: 0.5em;
-            font-size: 0.85em;
-            color: #999;
-            min-height: 1.2em;
-        }
-        #sdcard-panel {
-            width: 26em;
-            max-width: 85vw;
-            border: 1px solid #333;
-            border-radius: 0.5em;
-            padding: 1em;
-            text-align: center;
-        }
-        #sdcard-panel button {
-            padding: 0.5em 1.2em;
-            font-size: 0.95em;
-            border-radius: 0.4em;
-            border: 1px solid #555;
-            background: #2a2a2a;
-            color: #ddd;
-            cursor: pointer;
-        }
-        #sdcard-panel button:hover {
-            background: #3a3a3a;
-        }
-        #sdcardHelp {
-            margin-top: 0.6em;
-            font-size: 0.8em;
-            color: #888;
-        }
-        #sdcardStatus {
-            margin-top: 0.5em;
-            font-size: 0.8em;
-            color: #7fd67f;
-            min-height: 1.1em;
-        }
-        #display, #game {
-            width: 100%;
-            height: 100%;
-        }
-        .msg {
-            margin-bottom: 0.25em;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- Service worker for SharedArrayBuffer cross-origin isolation -->
+  <script src="./coi-serviceworker.js"></script>
+  <title>3DS & PSP Web Emulator</title>
+  <style>
+    * { box-sizing: border-box; }
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #111; color: #fff; font-family: sans-serif; }
+    #launcher {
+      position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 18px; background: #18181b; padding: 20px;
+    }
+    .card { background: #27272a; padding: 24px; border-radius: 12px; width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    h2 { margin: 0 0 8px 0; font-size: 20px; text-align: center; }
+    select, input[type="file"], button {
+      width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #3f3f46; background: #18181b; color: #fff; font-size: 14px; cursor: pointer;
+    }
+    button.start-btn { background: #2563eb; border: none; font-weight: bold; }
+    button.start-btn:hover { background: #1d4ed8; }
+    .divider { text-align: center; font-size: 12px; color: #71717a; text-transform: uppercase; }
+    #game-container { width: 100%; height: 100%; display: none; }
+  </style>
 </head>
 <body>
-    <div id="appRoot">
-        <div id="dropzone">
-            <div>Drop a 3DS or PSP game file here, or click to choose</div>
-            <input type="file" id="fileInput" style="display:none">
-            <div id="status"></div>
-        </div>
-        <div id="sdcard-panel">
-            <button id="sdcardBtn" type="button">Create Virtual SD Card</button>
-            <div id="sdcardHelp">
-                For 3DS games that need extra storage to run properly (Persona Q and other
-                DLC/extra-save-data-heavy titles), use this to launch with a freshly
-                created virtual SD card instead of the drop zone above. Once a 3DS game
-                is running, an "SD Card" button in the top-right corner opens a menu
-                showing what's actually on it (files, folders, size used), with a
-                "Create SD Card" action if it's empty or a "Reset SD Card" action if it
-                already holds data, without needing to leave the page.
-            </div>
-            <div id="sdcardStatus"></div>
-        </div>
+
+  <!-- Launcher Menu -->
+  <div id="launcher">
+    <div class="card">
+      <h2>Select a Game</h2>
+      
+      <!-- Option 1: GitHub-hosted ROMs -->
+      <label for="hosted-select">Hosted ROMs:</label>
+      <select id="hosted-select">
+        <option value="">-- Choose a hosted game --</option>
+        <!-- Place files under 100MB in your repository's /roms/ folder -->
+        <option value="./roms/homebrew_demo.iso">Homebrew Demo (PSP)</option>
+        <option value="./roms/sample_game.3ds">Sample Game (3DS)</option>
+        <!-- For games > 100MB, paste your direct GitHub Release download URL -->
+        <!-- <option value="https://github.com/<user>/<repo>/releases/download/v1.0/game.iso">Large Game (PSP)</option> -->
+      </select>
+
+      <div class="divider">or load from device</div>
+
+      <!-- Option 2: Local ROM File Picker -->
+      <input type="file" id="local-file" accept=".3ds,.cci,.cxi,.iso,.cso,.pbp,.zip,.7z" />
+
+      <button class="start-btn" id="launch-btn" disabled>Launch Emulator</button>
     </div>
-    <script src="app.js"></script>
+  </div>
+
+  <!-- Emulator Viewport -->
+  <div id="game-container">
+    <div id="game" style="width: 100%; height: 100%;"></div>
+  </div>
+
+  <script>
+    const hostedSelect = document.getElementById('hosted-select');
+    const localFileInput = document.getElementById('local-file');
+    const launchBtn = document.getElementById('launch-btn');
+
+    let selectedGameUrl = null;
+    let selectedFileName = '';
+
+    hostedSelect.addEventListener('change', (e) => {
+      if (e.target.value) {
+        selectedGameUrl = e.target.value;
+        selectedFileName = e.target.value;
+        localFileInput.value = '';
+        launchBtn.disabled = false;
+      } else {
+        selectedGameUrl = null;
+        launchBtn.disabled = !localFileInput.files.length;
+      }
+    });
+
+    localFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        selectedGameUrl = URL.createObjectURL(file);
+        selectedFileName = file.name;
+        hostedSelect.value = '';
+        launchBtn.disabled = false;
+      } else {
+        selectedGameUrl = null;
+        launchBtn.disabled = !hostedSelect.value;
+      }
+    });
+
+    launchBtn.addEventListener('click', () => {
+      if (!selectedGameUrl) return;
+
+      const ext = selectedFileName.split('.').pop().toLowerCase();
+      let core = 'psp';
+      if (['3ds', 'cci', 'cxi'].includes(ext)) {
+        core = '3ds';
+      } else if (['iso', 'cso', 'pbp'].includes(ext)) {
+        core = 'psp';
+      }
+
+      // Configure EmulatorJS globals
+      window.EJS_player = '#game';
+      window.EJS_core = core;
+      window.EJS_gameUrl = selectedGameUrl;
+      window.EJS_pathtodata = './data/';
+
+      // Switch view and mount EmulatorJS
+      document.getElementById('launcher').style.display = 'none';
+      document.getElementById('game-container').style.display = 'block';
+
+      const script = document.createElement('script');
+      script.src = './app.js';
+      document.body.appendChild(script);
+    });
+  </script>
 </body>
 </html>
